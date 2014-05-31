@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  var ACCESS_TOKEN = 'def6ea2c1d137119bfaac65a3068628aafc47cfb';
+  var ACCESS_TOKEN = '79b1f3ae6e8e0ba50c5a6f5acf0b14f4ff4a0e38';
+  var IS_READY = true;
 
   function thisBrowserIsBad() {
     alert("dude use a different browser");
@@ -70,6 +71,7 @@
           success: function(result) {
             var id = result.data.id;
             $imageContainer.find('.post-id').html('imgur.com/'+id);
+            IS_READY = true;
           },
           error: function(result) {
             console.log(result);
@@ -108,10 +110,11 @@
       console.log(fail);
     });
 
-    $('#record-button').click(function(){ go(); });
-    $(window).keypress(function(){ go(); });
+    $('#record-button').click(function(){ if(IS_READY){ go(); } });
+    $(window).keypress(function(){ if(IS_READY){ go(); } });
 
     function go(){
+      IS_READY = false;
       var $recordButton = $(this);
       $recordButton.attr('disabled', true);
       $('#gifs-go-here').fadeOut(200);

@@ -1,8 +1,14 @@
 (function () {
   "use strict";
 
-  var ACCESS_TOKEN = '79b1f3ae6e8e0ba50c5a6f5acf0b14f4ff4a0e38';
+  var CLIENT_ID = 'e7fc5d0dc23ff0f';
+  var CLIENT_SECRET = '67a740439c88d83f96cbec52132e5eff179487ad';
+  var REFRESH_TOKEN = '0c268661c830c809fc0cba712ffac091ac93917b';
+  var ACCESS_TOKEN = '';
   var IS_READY = true;
+
+  if(!localStorage['REFRESH_TOKEN']){ localStorage['REFRESH_TOKEN'] = REFRESH_TOKEN; }
+
 
   function thisBrowserIsBad() {
     alert("dude use a different browser");
@@ -12,8 +18,42 @@
     (navigator.getUserMedia || navigator.mozGetUserMedia || navigator.webkitGetUserMedia || thisBrowserIsBad).call(navigator, {video: true}, callback, fail);
   }
 
+  function getNewAccessToken(callback)
+  {
+    IS_READY = false;
+    console.log('requesting new access token...');
+    $.ajax({
+      url: 'https://api.imgur.com/oauth2/token',
+      method: 'POST',
+      headers: {
+        Accept: 'application/json'
+      },
+      data: {
+        refresh_token: localStorage['REFRESH_TOKEN'],
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: 'refresh_token'
+      },
+      success: function(result) {
+        console.log('received new access token');
+        console.log(result);
+        localStorage['REFRESH_TOKEN'] = result.refresh_token;
+        REFRESH_TOKEN = result.refresh_token;
+        ACCESS_TOKEN = result.access_token;
+        IS_READY = true;
+        if(callback != null){ callback(); }
+      },
+      error: function(result) {
+        console.log('could not get new access token');
+        console.log(result);
+      }
+    });
+  }
+
+  getNewAccessToken(null);
+
   var facetogif = {
-    settings: { w: 550, h: 413, framerate: 1000/10, seconds: 3000, countdown: 4000 },
+    settings: { w: 200, h: 150, framerate: 1000/10, seconds: 3000, countdown: 4000 },
     canvas: null,
     video: null,
     stream: null,
@@ -50,6 +90,7 @@
     },
     upload: function(blob, $imageContainer) {
       console.log('uploading...');
+      var self = this;
 
       var reader = new window.FileReader();
          
@@ -57,45 +98,46 @@
         var base64data = reader.result;
         base64data = base64data.split('data:image/gif;base64,')[1];            
 
-        $.ajax({
-          url: 'https://api.imgur.com/3/image',
-          method: 'POST',
-          headers: {
-            Authorization: 'Bearer ' + ACCESS_TOKEN,
-            Accept: 'application/json'
-          },
-          data: {
-            image: base64data,
-            type: 'base64'
-          },
-          success: function(result) {
-            var id = result.data.id;
-            $imageContainer.find('.post-id').html('imgur.com/'+id);
-            IS_READY = true;
-          },
-          error: function(result) {
-            console.log(result);
-          }
-        });
-
-        /*
-        //old tumblr upload
-
-        $.post('upload.php', JSON.stringify({ src: base64data }), function(data){
-          var response = JSON.parse((data.split('=')[1]).toString());
-          console.log(response)
-          $imageContainer.find('.post-id').html(response.response.id);
-        }).error(function(){
-          console.log('error sending image to php');
-        });
-        */
+        self.sendToImgur(base64data, $imageContainer);
       }
 
       reader.readAsDataURL(blob);
+    },
+    sendToImgur: function(base64data, $imageContainer) {
+      var self = this;
+
+      $.ajax({
+        url: 'https://api.imgur.com/3/image',
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + ACCESS_TOKEN,
+          Accept: 'application/json'
+        },
+        data: {
+          image: base64data,
+          type: 'base64'
+        },
+        success: function(result) {
+          console.log('UPLOAD SUCCESS!');
+          var id = result.data.id;
+          $imageContainer.find('.post-id').html('imgur.com/'+id);
+        },
+        error: function(result) {
+          console.log('UPLOAD ERROR...');
+          console.log(result);
+         
+          //try again
+          console.log('try upload again...');
+          getNewAccessToken(function(){
+            self.sendToImgur(base64data, $imageContainer);
+          });
+        }
+      });
     }
   };
 
   $(window).load(function(){
+    $('#message').fadeOut(0);
     facetogif.canvas = document.createElement('canvas');
     facetogif.canvas.width = facetogif.settings.w;
     facetogif.canvas.height = facetogif.settings.h;
@@ -178,6 +220,7 @@
             $('#gifs-go-here').fadeIn(200);
             $('#message').fadeOut(200);
             $('#instructions').fadeIn(200);
+            IS_READY = true;
             recorder.upload(blob, $imageContainer);
           });
 

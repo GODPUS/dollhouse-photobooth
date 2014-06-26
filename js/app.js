@@ -53,7 +53,7 @@
   getNewAccessToken(null);
 
   var facetogif = {
-    settings: { w: 200, h: 150, framerate: 1000/10, seconds: 3000, countdown: 4000 },
+    settings: { w: WIDTH, h: HEIGHT, framerate: 1000/10, seconds: 3000, countdown: 4000 },
     canvas: null,
     video: null,
     stream: null,
@@ -79,7 +79,11 @@
     record: function(ctx, frames, gif) {
       return function () {
         if (facetogif.video.src) {
-          ctx.drawImage(facetogif.video, 0, 0, facetogif.settings.w, facetogif.settings.h);
+          var imgData = renderer.domElement.toDataURL(); 
+          var img = document.createElement("img");
+          img.src = imgData;
+
+          ctx.drawImage(img, 0, 0, facetogif.settings.w, facetogif.settings.h);
           var frame = ctx.getImageData(0, 0, facetogif.settings.w, facetogif.settings.h);
           frames.push(frame);
           gif.addFrame(frame, {delay: facetogif.settings.framerate});
@@ -141,11 +145,13 @@
     facetogif.canvas = document.createElement('canvas');
     facetogif.canvas.width = facetogif.settings.w;
     facetogif.canvas.height = facetogif.settings.h;
-    facetogif.video = document.querySelector('video');
+    facetogif.video = document.createElement('video');
     $('#record-button').attr('disabled', true);
 
     getStream(function (stream) {
       facetogif.video.src = window.URL.createObjectURL(stream);
+      CameraFX(facetogif.video);
+
       facetogif.stream = stream;
       $('#record-button').attr('disabled', false);
     }, function (fail) {
@@ -202,6 +208,7 @@
           
           recorder.pause();
           recorder.compile(function (blob) {
+            renderer.setSize(window.innerWidth, window.innerHeight);
             var img = document.createElement('img');
             img.src = URL.createObjectURL(blob);
             img.dataset.blobindex = facetogif.blobs.push(blob) -1;
